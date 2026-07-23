@@ -1,0 +1,42 @@
+name: Check startnummer beschikbaarheid
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repo uitchecken
+        uses: actions/checkout@v4
+
+      - name: Python instellen
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Check uitvoeren
+        env:
+          SMTP_SERVER: ${{ secrets.SMTP_SERVER }}
+          SMTP_PORT: ${{ secrets.SMTP_PORT }}
+          SMTP_USERNAME: ${{ secrets.SMTP_USERNAME }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python check_ticket.py
+
+      - name: Status opslaan (state.txt committen als gewijzigd)
+        run: |
+          if [ -n "$(git status --porcelain state.txt)" ]; then
+            git config user.name "ticket-checker-bot"
+            git config user.email "actions@github.com"
+            git add state.txt
+            git commit -m "Update status"
+            git push
+          else
+            echo "Geen statuswijziging, niets te committen."
+          fi
